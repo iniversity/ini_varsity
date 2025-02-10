@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Earth Explorer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Cosmic Background Styles */
+        .stars {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #000000 0%, #1a0033 100%);
+            z-index: -1;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 1.5s infinite;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.2; }
+            50% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+
+        .shooting-star {
+            position: absolute;
+            width: 100px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, white);
+            animation: shoot 2s infinite;
+        }
+
+        @keyframes shoot {
+            0% { transform: translateX(-100%) translateY(-50%); opacity: 1; }
+            100% { transform: translateX(200vw) translateY(-50%); opacity: 0; }
+        }
+
+        /* Original Control Styles */
+        #controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            border-radius: 8px;
+            color: #fff;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .control-group { margin: 10px 0; }
+
+        /* Lightbox Styles */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 2rem;
+            border-radius: 12px;
+            color: #fff;
+            width: 80%;
+            max-width: 600px;
+            z-index: 2000;
+        }
+
+        #flat-earth-lightbox {
+            background: rgba(0,0,0,0.95);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 1.5rem;
+        }
+
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1500;
+        }
+
+        /* Enter Button Styles */
+        #enter-btn {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 40px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+        }
+
+        #enter-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(-50%) scale(1.05);
+        }
+
+        .flat-earth {
+            width: 80vmin;
+            height: 80vmin;
+            animation: spin 60s linear infinite;
+            border-radius: 50%;
+            box-shadow: 0 0 50px rgba(128,0,255,0.5);
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    <div id="controls">
+        <div class="control-group">
+            <label>Rotation Speed: <input type="range" id="speed" min="0" max="2" step="0.1" value="1"></label>
+        </div>
+        <div class="control-group">
+            <label>Zoom: <input type="range" id="zoom" min="10" max="30" value="15"></label>
+        </div>
+        <button id="reverse">Reverse</button>
+        <button id="reset">Reset View</button>
+    </div>
+
+    <button id="enter-btn" onclick="showFlatEarth()">ENTER</button>
+
+    <div id="overlay" onclick="closeAllLightboxes()"></div>
+    
+    <!-- Original Coordinate Lightbox -->
+    <div class="lightbox" id="coordinate-lightbox">
+        <span class="close-btn" onclick="closeAllLightboxes()">×</span>
+        <h2 id="region-title"></h2>
+        <p id="region-coords"></p>
+        <div id="region-content"></div>
+    </div>
+
+    <!-- New Flat Earth Lightbox -->
+    <div class="lightbox" id="flat-earth-lightbox">
+        <span class="close-btn" onclick="closeAllLightboxes()">×</span>
+        <div class="lightbox-content">
+            <img src="https://t4.ftcdn.net/jpg/09/21/45/77/360_F_921457714_vFRZ9CFi8wZZyosU4ow9kGU1myCMGmv0.jpg" 
+                 class="flat-earth" alt="Flat Earth">
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Cosmic Background Animation
+        function createStars() {
+            const container = document.getElementById('stars');
+            for(let i = 0; i < 200; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                container.appendChild(star);
+            }
+
+            setInterval(() => {
+                const shooter = document.createElement('div');
+                shooter.className = 'shooting-star';
+                shooter.style.top = Math.random() * 100 + '%';
+                shooter.style.animationDuration = Math.random() * 2 + 2 + 's';
+                container.appendChild(shooter);
+                setTimeout(() => shooter.remove(), 2000);
+            }, 5000);
+        }
+
+        // Original Earth Visualization
+        let scene, camera, renderer, globe;
+        let rotationSpeed = 1;
+        let rotationDirection = 1;
+        const markers = [];
+        
+        const textureLoader = new THREE.TextureLoader();
+        const earthTexture = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
+
+        function initEarth() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            const geometry = new THREE.SphereGeometry(5, 64, 64);
+            const material = new THREE.MeshPhongMaterial({
+                map: earthTexture,
+                bumpScale: 0.05,
+                specular: new THREE.Color('grey'),
+                shininess: 5
+            });
+
+            globe = new THREE.Mesh(geometry, material);
+            scene.add(globe);
+
+            addMarkers();
+
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5,3,5);
+            scene.add(directionalLight);
+
+            camera.position.z = 15;
+
+            // Event Listeners
+            document.addEventListener('click', handleClick);
+            document.querySelector('#speed').addEventListener('input', e => {
+                rotationSpeed = parseFloat(e.target.value);
+            });
+            document.querySelector('#zoom').addEventListener('input', e => {
+                camera.position.z = parseInt(e.target.value);
+            });
+            document.querySelector('#reverse').addEventListener('click', () => {
+                rotationDirection *= -1;
+            });
+            document.querySelector('#reset').addEventListener('click', () => {
+                camera.position.set(0,0,15);
+                rotationDirection = 1;
+            });
+        }
+
+        function addMarkers() {
+            const markerGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+            const markerMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff4444,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            for(let i = 0; i < 50; i++) {
+                const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+                const phi = Math.acos(-1 + (2 * i) / 50);
+                const theta = Math.sqrt(50 * Math.PI) * phi;
+                
+                marker.position.setFromSphericalCoords(5.1, phi, theta);
+                marker.userData = {
+                    coords: sphericalToGeo(phi, theta),
+                    info: `Region ${i+1} Information`
+                };
+                
+                scene.add(marker);
+                markers.push(marker);
+            }
+        }
+
+        function sphericalToGeo(phi, theta) {
+            return {
+                lat: 180 * (phi - Math.PI/2) / Math.PI,
+                lng: 360 * theta / (2 * Math.PI) - 180
+            };
+        }
+
+        function handleClick(event) {
+            const mouse = new THREE.Vector2(
+                (event.clientX / window.innerWidth) * 2 - 1,
+                -(event.clientY / window.innerHeight) * 2 + 1
+            );
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(markers);
+            if(intersects.length > 0) {
+                showCoordinateLightbox(intersects[0].object.userData);
+            }
+        }
+
+        // Lightbox Controls
+        function showCoordinateLightbox(data) {
+            document.getElementById('region-title').textContent = `Region Coordinates`;
+            document.getElementById('region-coords').textContent = 
+                `Lat: ${data.coords.lat.toFixed(2)}°, Lng: ${data.coords.lng.toFixed(2)}°`;
+            document.getElementById('region-content').textContent = data.info;
+            document.getElementById('coordinate-lightbox').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function showFlatEarth() {
+            document.getElementById('flat-earth-lightbox').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function closeAllLightboxes() {
+            document.querySelectorAll('.lightbox').forEach(box => {
+                box.style.display = 'none';
+            });
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            globe.rotation.y += 0.005 * rotationSpeed * rotationDirection;
+            renderer.render(scene, camera);
+        }
+
+        // Initialization
+        window.onload = () => {
+            createStars();
+            initEarth();
+            animate();
+        };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
